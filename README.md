@@ -9,7 +9,7 @@ SmartPerformance is a PowerShell script that performs specific actions when your
 
 ## Installation
 
-1. Download the SmartPerformance PowerShell script (e.g., `BoostOnCharge.ps1`) from this repository.
+1. Download the SmartPerformance PowerShell script (e.g., `SmartPerformance.ps1`) from this repository.
 
 2. Open Task Scheduler by pressing `Win + R`, typing `taskschd.msc` in the Run dialog, and pressing Enter.
 
