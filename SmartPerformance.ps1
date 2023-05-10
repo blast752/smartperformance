@@ -1,76 +1,72 @@
-function Log-ScriptInfo {
-    $EventLogSource = "SmartPerformance"
-
-    if (![System.Diagnostics.EventLog]::SourceExists($EventLogSource)) {
-        [System.Diagnostics.EventLog]::CreateEventSource($EventLogSource, "Application")
+    function Log-ScriptInfo {
+        param (
+            [string]$LogMessage
+        )
+    
+        $EventLogSource = "SmartPerformance-v0.2"
+    
+        if (![System.Diagnostics.EventLog]::SourceExists($EventLogSource)) {
+            [System.Diagnostics.EventLog]::CreateEventSource($EventLogSource, "Application")
+        }
+    
+        [System.Diagnostics.EventLog]::WriteEntry($EventLogSource, $LogMessage, [System.Diagnostics.EventLogEntryType]::Information)
     }
+    
+    Log-ScriptInfo -LogMessage "The SmartPerformance script is running."
+    Log-ScriptInfo -LogMessage "The script is secure and is made by Matteo."
 
-    $EventLogMessage = "SmartPerformance script is running."
-    $EventLogMessage = "Made by Matteo, this is a secure script!"
+# smartperformance.ps1
 
-    [System.Diagnostics.EventLog]::WriteEntry($EventLogSource, $EventLogMessage, [System.Diagnostics.EventLogEntryType]::Information)
+# GUID dei piani energetici
+$balancedPlan = "381b4222-f694-41f0-9685-ff5bb260df2e"
+$highPerformancePlan = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+
+# Funzione per ottenere il piano energetico attuale
+function Get-CurrentPowerPlan {
+    $activePlan = powercfg /list | Select-String "\*"
+    $activePlan = $activePlan -replace ".*\((.*)\).*", '$1'
+    return $activePlan
 }
 
-Log-ScriptInfo
-
-$CustomBalancedPlanGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
-$HighPerformancePlanGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
-
-function Get-PowerSource {
-    $BatteryStatus = Get-WmiObject -Class Win32_Battery
-    $PowerStatus = (Get-CimInstance -Namespace root\wmi -ClassName BatteryStatus).PowerOnline
-
-    if ($PowerStatus -eq $true) {
-        return "AC"
-    } elseif ($BatteryStatus -ne $null -and $PowerStatus -eq $false) {
-        return "Battery"
-    } else {
-        return "Unknown"
-    }
-}
+# Funzione per assegnare il piano energetico appropriato
 function Set-PowerPlan {
-    param($PlanGuid)
-    powercfg.exe -setactive $PlanGuid
+    param($planGUID)
+
+    if ($planGUID -ne (Get-CurrentPowerPlan)) {
+        powercfg /setactive $planGUID
+        Write-Host "Power plan has been changed to: $planGUID"
+    }
 }
 
-function Check-PowerProfileExists {
-    param($ProfileGuid)
-    $Profiles = powercfg.exe -list
-    if ($Profiles -match $ProfileGuid) {
-        return $true
+# Funzione per controllare lo stato di alimentazione
+function Check-PowerStatus {
+    $batteryStatus = Get-WmiObject -Class Win32_Battery
+    return $batteryStatus.BatteryStatus -eq 2
+}
+
+# Registra l'evento di cambio alimentazione
+$powerEvent = Register-WmiEvent -Query "SELECT * FROM Win32_PowerManagementEvent WHERE EventType = 10" -SourceIdentifier PowerEvent -Action {
+
+    # Stato di alimentazione: connesso (1) o scollegato (0)
+    $powerStatus = (Check-PowerStatus) -eq 1
+
+    if ($powerStatus) {
+        Set-PowerPlan -planGUID $highPerformancePlan
     } else {
-        return $false
+        Set-PowerPlan -planGUID $balancedPlan
     }
 }
 
-function Create-HighPerformancePlan {
-    $HighPerformancePlanName = "High Performance"
-    $NewPlan = powercfg.exe -duplicatescheme $HighPerformancePlanGuid 2>&1
-    if ($NewPlan -match "Parametri non validi") {
-        Write-Host "Error: Failed to duplicate High Performance plan. Exiting."
-        exit
-    }
-    $NewPlanGuid = $NewPlan.Split()[3]
-    powercfg.exe -changename $NewPlanGuid $HighPerformancePlanName
-    return $NewPlanGuid
+# Imposta il piano energetico iniziale
+$initialPowerStatus = Get-WmiObject -Namespace root\wmi -Class BatteryStatus | Select-Object -ExpandProperty PowerOnline
+if ($initialPowerStatus) {
+    Set-PowerPlan -planGUID $highPerformancePlan
+} else {
+    Set-PowerPlan -planGUID $balancedPlan
 }
 
-if (-not (Check-PowerProfileExists -ProfileGuid $CustomBalancedPlanGuid)) {
-    Write-Host "Custom Balanced plan not found. Exiting."
-    exit
-}
-
+# Attendi l'evento di cambio alimentazione
+Write-Host "Monitoring power events. Press Ctrl+C to exit."
 while ($true) {
-    $PowerSource = Get-PowerSource
-    $CurrentPlan = (powercfg.exe -getactivescheme).split()[3]
-
-    if ($PowerSource -eq "AC" -and $CurrentPlan -ne $HighPerformancePlanGuid) {
-        Set-PowerPlan -PlanGuid $HighPerformancePlanGuid
-        Write-Host "Switched to High Performance plan"
-    } elseif ($PowerSource -eq "Battery" -and $CurrentPlan -ne $CustomBalancedPlanGuid) {
-        Set-PowerPlan -PlanGuid $CustomBalancedPlanGuid
-        Write-Host "Switched to Custom Balanced plan"
-    }
-
-    Start-Sleep -Seconds 120
+    Wait-Event -SourceIdentifier PowerEvent
 }
