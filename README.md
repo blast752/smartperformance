@@ -1,41 +1,57 @@
-# SmartPerformance 
+# Smart Performance Power Plan Switcher
 
-SmartPerformance is a PowerShell script that performs specific actions when your computer is connected to AC power or running on battery power. The script uses a combination of scheduled tasks and WMI (Windows Management Instrumentation) event queries to monitor power events efficiently.
+This PowerShell script, `smartperformance.ps1`, aims to automatically switch between the Balanced and High Performance power plans on your Windows machine based on whether your device is connected to a power source or running on battery.
+
+## Features
+
+- Automatically switches between Balanced and High Performance power plans.
+- Monitors power events in real-time.
+- Lightweight and easy to use.
 
 ## Prerequisites
 
-- PowerShell 5.1 or later
-- Administrator privileges to create the scheduled task
+- Windows OS with PowerShell installed.
+- PowerShell 5.1 or later.
 
-## Installation
+## How to use
 
-1. Download the SmartPerformance PowerShell script (e.g., `SmartPerformance.ps1`) from this repository.
+1. Clone or download the script file `smartperformance.ps1`.
+2. Open PowerShell with **Administrator** privileges.
+3. Navigate to the folder containing the script.
+4. Run the script by typing `.\smartperformance.ps1` and pressing Enter.
+5. The script will start monitoring power events and switch power plans accordingly. Press Ctrl+C to exit.
 
-2. Open Task Scheduler by pressing `Win + R`, typing `taskschd.msc` in the Run dialog, and pressing Enter.
+## Creating a shortcut to run the script as Administrator
 
-3. Right-click on "Task Scheduler Library" and select "Create Task."
+1. Right-click on an empty space on your desktop or desired folder, then click on `New > Shortcut`.
 
-4. In the "Create Task" window, enter a name and description for the task, and check the "Run with highest privileges" checkbox.
+2. In the `Create Shortcut` window, type the following in the `Type the location of the item` field:
 
-5. Go to the "Triggers" tab and click "New." In the "New Trigger" window, set "Begin the task" to "On an event."
+   ````
+   powershell.exe -ExecutionPolicy Bypass -File "C:\path\to\smartperformance.ps1"
+   ```
 
-6. Set "Log" to "System" and "Source" to "Kernel-Power." For the "Event ID," use "105" for AC power connected (plugged in) events and "107" for battery power events (unplugged). Click "OK" to create the trigger. You can create multiple triggers if needed.
+   Replace `C:\path\to\` with the actual path to the folder containing the `smartperformance.ps1` script.
 
-7. Go to the "Actions" tab and click "New." In the "New Action" window, set "Action" to "Start a program." For "Program/script," enter `powershell.exe`. In the "Add arguments (optional)" field, enter `-ExecutionPolicy Bypass -File "C:\Path\To\BoostOnCharge.ps1"`. Replace `C:\Path\To\BoostOnCharge.ps1` with the full path to your downloaded BoostOnCharge script. Click "OK" to create the action.
+3. Click `Next`, give your shortcut a name (e.g., "Smart Performance Switcher"), and click `Finish`.
 
-8. Click "OK" to create the scheduled task.
+4. Now, right-click on the newly created shortcut and click on `Properties`.
 
-## Usage
+5. In the `Shortcut` tab, click on the `Advanced` button.
 
-The SmartPerformance script will run automatically when the power state of your computer changes, either when it's connected to AC power or running on battery power. The script will perform specific actions depending on the power state.
+6. Check the box next to `Run as administrator`, then click `OK`.
 
-You can customize the actions in the `BoostOnCharge.ps1` script by modifying the content of the `if` and `elseif` blocks:
+7. Click `Apply`, then click `OK` to close the `Properties` window.
 
-```powershell
-$powerStatus = (Get-WmiObject -Class Win32_Battery).BatteryStatus
+Now, when you double-click on the shortcut, the `smartperformance.ps1` script will be executed as Administrator.
 
-if ($powerStatus -eq 2) {
-    # AC power connected (plugged in) actions
-} elseif ($powerStatus -eq 1) {
-    # Battery power actions (unplugged)
-}
+## Code overview
+
+- The script defines GUIDs for the Balanced and High Performance power plans.
+- Functions are defined to get the current power plan, set a new power plan, and check the power status.
+- An event is registered for power management events to detect when the power source changes.
+- The script sets the initial power plan based on the current power status and starts monitoring power events.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
